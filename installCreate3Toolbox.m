@@ -181,7 +181,7 @@ if exist(source,'file')
     tfROS2 = copyfile(source,destination);
     if tfROS2
         % -> Extract messages
-        ros2genmsg(toolboxRoot)
+        ros2RegisterMessages(toolboxRoot);
     else
         fprintf('Unable to copy custom ROS2 messages.\n');
     end
