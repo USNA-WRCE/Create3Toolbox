@@ -1,7 +1,10 @@
-classdef create3_HW < matlab.mixin.SetGet
-    % This is the create 3 interface class, the class takes in the name of
-    % the namespace the create is in. 
-    %   Detailed explanation goes here
+classdef Create3 < matlab.mixin.SetGet
+    % CREATE3 interfaces the Create3 hardware using iRobot ROS2 messages
+    %
+    %   Initialization
+    %       sim = Create3;
+    %
+    %   L. DeVries & M. Kutzer, 06Oct2024, USNA
 
     properties
         node;
