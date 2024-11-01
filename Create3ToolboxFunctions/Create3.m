@@ -2,7 +2,13 @@ classdef Create3 < matlab.mixin.SetGet
     % CREATE3 interfaces the Create3 hardware using iRobot ROS2 messages
     %
     %   Initialization
-    %       sim = Create3;
+    %       crt = Create3(name,ID);
+    %
+    %   Input(s)
+    %       name - character array defining robot name space for the
+    %              Create3 hardware
+    %         ID - scalar integer specifying the ROS2 domain ID for the
+    %              Create3 hardware
     %
     %   L. DeVries & M. Kutzer, 06Oct2024, USNA
 
