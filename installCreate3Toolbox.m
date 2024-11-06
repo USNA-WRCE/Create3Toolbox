@@ -15,7 +15,7 @@ function installCreate3Toolbox(replaceExisting)
 %   M. Kutzer, 31Oct2024, USNA
 
 % Updates
-
+%   06Nov2024 - Fixed install version check.
 
 % TODO - Allow users to create a local version if admin rights are not
 % possible.
