@@ -188,15 +188,20 @@ if exist(source,'file')
     end
 else
     % No custom message file exists
+    fprintf('\n');
+    fprintf('%s',repmat('-',1,84));
+    fprintf('\n');
     fprintf([...
-        'Custom messages for MATLAB %s have not been generated,',...
-        'the ROS2 messages for the following MATLAB releases are ',...
-        'available:\n'],ver);
+        'Custom ROS2 messages for MATLAB %s have not been generated for this toolbox version.\n',...
+        'ROS2 messages are available for the following MATLAB releases:\n'],ver);
     d = dir( fullfile(pnameROS2,'*.zip') );
     fnamesROS2 = {d.name};
     for i = 1:numel(fnamesROS2)
-        fprintf('\tMATLAB %s\n',fnamesROS2{i}{1}(16:end-4));
+        fprintf('\tMATLAB %s\n',fnamesROS2{i}(16:end-4));
     end
+    fprintf('%s',repmat('-',1,84));
+    fprintf('\n');
+    fprintf('\n');
 end
 
 %% Save toolbox path
