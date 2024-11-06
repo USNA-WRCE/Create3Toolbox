@@ -13,17 +13,37 @@ classdef Create3 < matlab.mixin.SetGet
     %   L. DeVries & M. Kutzer, 06Oct2024, USNA
 
     properties
-        node;
+        node; % primary MATLAB node to communicate over ROS network
         %pos,quat,eul; % placeholder for MoCap data if used
-        odom_pos,odom_vel,odom_quat,odom_angVel,odom_eul;
-        batteryPercent, irData, wheelSpds,slipStatus;
-        accel,gyro,imu_quat,imu_eul;
-        pose_sub,imu_sub,odom_sub;
-        ir_sub,batt_sub,wheelVel_sub,slip_sub;
-        cmd_pub, led_pub;
+        odom_pos; % position estimate from vehicle's onboard odometry
+        odom_vel; % velocity estimate from vehicle's onboard odometry
+        odom_quat; % 1x4 orientation estimate from vehicle's onboard odometry
+        odom_angVel; % angular velocity measurement from vehicle's gyro
+        odom_eul; % 1x3 euler angle measurement from vehicle's onboard IMU 
+        batteryPercent; % battery status 0-100%, from onboard sensor
+        irData; % 1x7 array of infrared proximity sensor measurements 
+        wheelSpds; % 1x2 array of wheel speeds from onboard sensors
+        slipStatus; % boolean variable indicating if wheels have slipped. Indicator of accuracy of odometry data
+        accel;  % 1x3 array of accelerometer measurements from onboard sensor
+        gyro; % 1x3 array of gyro measurements from onboard sensor
+        imu_quat; % 1x4 array quaternion measurement from onboard sensor
+        imu_eul; % 1x3 array of Euler angles from onboard sensor
+        pose_sub; % pose subscriber object to read ROS network data
+        imu_sub; % imu subscriber object to read ROS network data
+        odom_sub; % odometry subscriber object to read ROS network data
+        ir_sub; % infrared sensor data subscriber object to read ROS network data
+        batt_sub; % battery subscriber object to read ROS network data
+        wheelVel_sub; % wheel velocity subscriber object to read ROS network data
+        slip_sub; % slip status subscriber object to read ROS network data
+        cmd_pub; % ROS publisher object to send velocity commands
+        led_pub; % ROS publisher object to LED color commands
+        
         % action clients
-        undockClient, undockGoalMsg;
-        dockClient, dockGoalMsg;
+        
+        undockClient; % ROS action client to send undock commands
+        undockGoalMsg; % object to package undock command message
+        dockClient; % ROS action client to send docking commands
+        dockGoalMsg; % object to package dock command message
     end
 
     methods
@@ -77,6 +97,9 @@ classdef Create3 < matlab.mixin.SetGet
         
         % --- Destructor
         function delete(obj)
+            % Destructor to delete publishers and subscribers, action
+            % clients
+
             fprintf('Destructor Called.\n')
             fprintf('\tDeleting publishers and subscribers...');
             clear obj.pose_sub;
@@ -189,8 +212,8 @@ classdef Create3 < matlab.mixin.SetGet
 
         function [pose,vel] = getOdomPose(obj)
             % getOdomPose queries object pose properties and outputs:
-            %       - pose = [position euler angles]
-            %       - vel = [translational velocity angular velocity]
+            %       - pose = [position euler_angles]
+            %       - vel = [translational_velocity angular_velocity]
             %
             %   L. DeVries, M. Kutzer 22Oct2024, USNA
 
@@ -202,7 +225,7 @@ classdef Create3 < matlab.mixin.SetGet
             % getImuData queries object imu properties and outputs:
             %       - imu_data: acceleration and gyro measurements
             %       - quat_data: quaternion measurement
-            %       - imu_eul: euler angle measurement stemming from
+            %       - imu_eul: euler angles stemming from
             %                  quaternion
             %
             %   L. DeVries, M. Kutzer 22Oct2024, USNA
@@ -217,10 +240,9 @@ classdef Create3 < matlab.mixin.SetGet
             % command to the create3's command velocity topic.
             %
             %   Inputs:
-            %       u: forward speed (limited to 
-            %       - quat_data: quaternion measurement
-            %       - imu_eul: euler angle measurement stemming from
-            %                  quaternion
+            %       u: forward speed, scaler: (limited to [0,0.306] m/s) 
+            %       r: turn rate, scaler: rad/s
+            %       
             %
             %   L. DeVries, M. Kutzer 22Oct2024, USNA
 
@@ -239,8 +261,12 @@ classdef Create3 < matlab.mixin.SetGet
         end
 
         function undock(obj)
+            % undock() sends a command to undock the create3
+            %       
+            %
+            %   L. DeVries, M. Kutzer 22Oct2024, USNA
 
-            goalHandle = sendGoal(obj.undockClient,obj.undockGoalMsg)
+            goalHandle = sendGoal(obj.undockClient,obj.undockGoalMsg);
         end
 
     end
