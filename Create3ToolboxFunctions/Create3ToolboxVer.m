@@ -14,13 +14,14 @@ function varargout = Create3ToolboxVer
 %
 %   L. DeVries & M. Kutzer, 31Oct2024, USNA
 
-% Updates:
+% Updates
+%   06Nov2024 - Fixed install version check.
 
 
 A.Name = 'Create3  Toolbox';
-A.Version = '1.0.0';
+A.Version = '1.0.1';
 A.Release = '(R2024a)';
-A.Date = '31-OCT-2024';
+A.Date = '06-Nov-2024';
 A.URLVer = 1;
 
 msg{1} = sprintf('MATLAB %s Version: %s %s',A.Name, A.Version, A.Release);
