@@ -272,7 +272,9 @@ classdef Create3_HW < matlab.mixin.SetGet
             %       color = 255*rand(6,3);
             %       crt.setLEDCmd(color)
             %   L. DeVries, M. Kutzer 22Oct2024, USNA
-
+            if size(color,1)~=6 && size(color,2)~=3
+                error('Incorrect input size, must be 6x3')
+            end
             msg = ros2message("irobot_create_msgs/LightringLeds");
             msg.override_system = true;
             for mm = 1:6
