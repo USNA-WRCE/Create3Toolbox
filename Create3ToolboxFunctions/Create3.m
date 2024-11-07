@@ -47,7 +47,7 @@ classdef Create3 < matlab.mixin.SetGet
     end
 
     methods
-        function obj = create3_HW(robot_namespace,domain_id)
+        function obj = create3(robot_namespace,domain_id)
             % CREATE3_HW creates a hardware interface object for the Create3.
             % It uses the ros2 toolbox in matlab to connect to the device.
             %   obj = create3_HW(namespace,domain_id);
