@@ -260,6 +260,44 @@ classdef Create3_HW < matlab.mixin.SetGet
             send(obj.cmd_pub,msg)                  
         end
 
+        function setLEDCmd(obj,color)
+            % setLEDCmd(color) sends a command to change the Create3 LED
+            % ring to the color specified in the string "color"
+            %
+            %   Input:
+            %       color: 6x3 array containing red,green,blue colors values 
+            %              each on the scale 0-255 for each of the 6 LEDs
+            %              in the lightring
+            %   Example: set LEDs to random color
+            %       color = 255*rand(6,3);
+            %       crt.setLEDCmd(color)
+            %   L. DeVries, M. Kutzer 22Oct2024, USNA
+
+            msg = ros2message("irobot_create_msgs/LightringLeds");
+            msg.override_system = true;
+            for mm = 1:6
+                msg.leds(mm).red = uint8(round(color(mm,1)));
+                msg.leds(mm).green = uint8(round(color(mm,2)));
+                msg.leds(mm).blue = uint8(round(color(mm,3)));
+            end
+            send(obj.led_pub,msg)                  
+        end
+
+        function setLEDDefault(obj)
+            % setLEDDefault sends a command to return the Create3 LED
+            % ring to its default behavior
+            %
+            %   Example: 
+            %       
+            %       crt.setLEDDefault()
+            %
+            %   L. DeVries, M. Kutzer 7Nov2024, USNA
+
+            msg = ros2message("irobot_create_msgs/LightringLeds");
+            msg.override_system = false;
+            send(obj.led_pub,msg)                  
+        end
+
         function undock(obj)
             % undock() sends a command to undock the create3
             %       
