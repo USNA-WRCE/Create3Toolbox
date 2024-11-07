@@ -1,8 +1,8 @@
-classdef Create3 < matlab.mixin.SetGet
-    % CREATE3 interfaces the Create3 hardware using iRobot ROS2 messages
+classdef Create3_HW < matlab.mixin.SetGet
+    % CREATE3_HW interfaces the Create3 hardware using iRobot ROS2 messages
     %
     %   Initialization
-    %       crt = Create3(name,ID);
+    %       crt = Create3_HW(name,ID);
     %
     %   Input(s)
     %       name - character array defining robot name space for the
@@ -47,7 +47,7 @@ classdef Create3 < matlab.mixin.SetGet
     end
 
     methods
-        function obj = create3(robot_namespace,domain_id)
+        function obj = Create3_HW(robot_namespace,domain_id)
             % CREATE3_HW creates a hardware interface object for the Create3.
             % It uses the ros2 toolbox in matlab to connect to the device.
             %   obj = create3_HW(namespace,domain_id);
