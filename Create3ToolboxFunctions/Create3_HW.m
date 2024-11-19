@@ -54,14 +54,24 @@ classdef Create3_HW < matlab.mixin.SetGet
             %   obj = create3_HW(namespace,domain_id);
             %
             %   Input(s)
-            %       namespace - string definintg the namespace the robot is
-            %                   operating in
-            %
-            %       domain_id - scalar value specifying the ros2 domain ID
-            %                   underwhich the create is communicating
+            %       namespace - character array defining the namespace of 
+            %                   the robot            %
+            %       domain_id - positive scalar value specifying the ros2 
+            %                   domain ID for communication with the
+            %                   Create3
             %
             %   L. DeVries, M. Kutzer 22Oct2024, USNA
-
+            
+            % Check input(s)
+            narginchk(2,2);
+            if isstring(robot_namespace)
+                robot_namespace = char(robot_namespace);
+            end
+            if ~ischar(robot_namespace)
+                error('Robot namespace must be defined as a character array.');
+            end
+            robot_namespace = lower(robot_namespace);
+            
             % check that ROS2 toolbox is installed
             tlbxChck = contains(struct2array(ver), 'ROS Toolbox');
             if ~tlbxChck
