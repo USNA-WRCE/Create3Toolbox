@@ -38,6 +38,7 @@ classdef Create3_HW < matlab.mixin.SetGet
         slip_sub; % slip status subscriber object to read ROS network data
         cmd_pub; % ROS publisher object to send velocity commands
         led_pub; % ROS publisher object to LED color commands
+        beep_pub; % ROS publisher object to audio commands
         opMode; % oeprating mode: 0=basic mode, 1=advanced mode including custom create3 ROS messages
         % action clients
 
@@ -72,7 +73,10 @@ classdef Create3_HW < matlab.mixin.SetGet
             if ~tlbxChck2
                 error("Missing toolbox containing quat2eul() function. Please install one of the following: Navigation Toolbox,UAV Toolbox, Aerospace Toolbox, or Robotics System Toolbox")
             end
-
+            
+            if strcmp(lower(robot_namespace),robot_namespace)~=1
+                error("Robot namespace must be all lowercase letters")
+            end
 
             % objects that will work without custom toolbox
             obj.node = ros2node("node",domain_id);
@@ -99,11 +103,18 @@ classdef Create3_HW < matlab.mixin.SetGet
                 obj.slip_sub = ros2subscriber(obj.node,"/"+robot_namespace+"/slip_status","irobot_create_msgs/SlipStatus",@obj.slipCallback,'Reliability','besteffort','Durability','volatile','Depth',1);
                 obj.led_pub = ros2publisher(obj.node,"/"+robot_namespace+"/cmd_lightring","irobot_create_msgs/LightringLeds",'Reliability','besteffort','Durability','volatile','Depth',1);
                 [obj.undockClient,obj.undockGoalMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/undock","irobot_create_msgs/Undock",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall"));
-                %[obj.dockClient,obj.dockGoalMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/dock","irobot_create_msgs/DockServo",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall"));
-                
+                %[obj.dockClient,obj.dockGoalMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/dock","irobot_create_msgs/Dock",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble?)
+                obj.beep_pub = ros2publisher(obj.node,"/"+robot_namespace+"/cmd_audio","irobot_create_msgs/AudioNoteVector",'Reliability','reliable','Durability','volatile','Depth',1);
             end
 
-
+            try
+                freq = 400;
+                duration = 1;
+                obj.beep(freq,duration)
+                disp('sucessfully connected to vehicle')
+            catch
+                disp('vehicle connection failed')
+            end
         end
 
         % --- Destructor
@@ -332,6 +343,41 @@ classdef Create3_HW < matlab.mixin.SetGet
                 goalHandle = sendGoal(obj.undockClient,obj.undockGoalMsg);
                 pause(5); % pause before allowing user to send another command
             end
+        end
+
+        % function dock(obj) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
+        % ALSO UPDATE CREATE_MSGS 
+        %     % dock() sends a command to dock the create3
+        %     %
+        %     %
+        %     %   L. DeVries, M. Kutzer 19Nov2024, USNA
+        %     if obj.opMode==0
+        %         error('Functionality not supported in basic mode')
+        %     else
+        %         goalHandle = sendGoal(obj.dockClient,obj.dockGoalMsg);
+        %         pause(5); % pause before allowing user to send another command
+        %     end
+        % end
+
+        function beep(obj,freq,duration)
+            % beep(tone,duration) sends a command to make the create3 beep
+            % at the frequency freq and duration duration
+            %
+            %   inputs:
+            %       freq: scalar frequency in Hz
+            %       duration: scalar duration in seconds
+            %
+            %   L. DeVries, M. Kutzer 22Oct2024, USNA
+            if obj.opMode==0
+                error('Functionality not supported in basic mode')
+            else
+                msg = ros2message("irobot_create_msgs/AudioNoteVector");
+                msg.notes(1).frequency = uint16(freq);
+                msg.notes(1).max_runtime.sec = int32(duration);
+                msg.notes(1).max_runtime.nanosec = uint32(0); % TODO update this to be able to play non-integer seconds
+                send(obj.beep_pub,msg)
+            end
+
         end
 
     end
