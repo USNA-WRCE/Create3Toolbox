@@ -71,6 +71,7 @@ classdef Create3_HW < matlab.mixin.SetGet
             if ~ischar(robot_namespace)
                 error('Robot namespace must be defined as a character array.');
             end
+            % correct robot namespace if entered capital letters
             robot_namespace = lower(robot_namespace);
             
             % check that ROS2 toolbox is installed
@@ -85,7 +86,16 @@ classdef Create3_HW < matlab.mixin.SetGet
             end
             
             if strcmp(lower(robot_namespace),robot_namespace)~=1
-                error("Robot namespace must be all lowercase letters")
+                error("Robot namespace must be all lowercase letters.")
+            end
+            
+            % get list of all nodes on the ros2 network
+            nds = ros2("node","list","DomainID",domain_id);
+            numNodes = sum(contains(nds,'/node')); % check if there is a node called "node"
+            % if numNodes is greater than zero, then there is already an
+            % active MATLAB connection to the robot
+            if numNodes>0
+                error("MATLAB connection to robot already exists. Not creating another instance")
             end
 
             % objects that will work without custom toolbox
@@ -145,6 +155,7 @@ classdef Create3_HW < matlab.mixin.SetGet
                 clear obj.slip_sub;
                 clear obj.led_pub;
             end
+            clear obj.node
             fprintf('[DONE]\n');
             fprintf('\tDeleting objects...');
             fprintf('[DONE]\n')
