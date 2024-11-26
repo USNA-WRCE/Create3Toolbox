@@ -16,12 +16,12 @@ function varargout = Create3ToolboxVer
 
 % Updates
 %   06Nov2024 - Fixed install version check.
-
+%   26Nov2024 - Include Geometry Toolbox.
 
 A.Name = 'Create3  Toolbox';
-A.Version = '1.0.1';
+A.Version = '1.0.2';
 A.Release = '(R2024a)';
-A.Date = '06-Nov-2024';
+A.Date = '26-Nov-2024';
 A.URLVer = 1;
 
 msg{1} = sprintf('MATLAB %s Version: %s %s',A.Name, A.Version, A.Release);
