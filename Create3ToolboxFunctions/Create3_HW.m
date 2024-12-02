@@ -141,7 +141,7 @@ classdef Create3_HW < matlab.mixin.SetGet
         function delete(obj)
             % Destructor to delete publishers and subscribers, action
             % clients
-
+            
             fprintf('Destructor Called.\n')
             fprintf('\tDeleting publishers and subscribers...');
             clear obj.pose_sub;
@@ -150,12 +150,20 @@ classdef Create3_HW < matlab.mixin.SetGet
             clear obj.cmd_pub;
             clear obj.batt_sub;
             if obj.opMode==1 % only clear if in advanced/full operating mode
-                clear obj.ir_sub;
+                obj.setLEDDefault; % set led lightbar to normal operation 
+                freq = 400;
+                duration = 1;
+                obj.beep(freq*0.75,duration/2) % beep twice to signal disconnect
+                pause(duration/2)
+                obj.beep(freq/2,duration/2)
+                pause(duration/2)
+                clear obj.ir_sub; % clear full mode subs/pubs
                 clear obj.wheelVel_sub;
                 clear obj.slip_sub;
                 clear obj.led_pub;
+                clear obj.beep_pub;
             end
-            clear obj.node
+            clear obj.node % delete ros2 node
             fprintf('[DONE]\n');
             fprintf('\tDeleting objects...');
             fprintf('[DONE]\n')
