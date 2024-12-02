@@ -16,6 +16,7 @@ function installCreate3Toolbox(replaceExisting)
 
 % Updates
 %   06Nov2024 - Fixed install version check.
+%   26Nov2024 - Included geometry toolbox.
 
 % TODO - Allow users to create a local version if admin rights are not
 % possible.
@@ -25,6 +26,7 @@ function installCreate3Toolbox(replaceExisting)
 supportToolboxes = {...
     'Create3Simulation','USNA-WRCE';...
     'OptiTrack','kutzer';...
+    'Geometry','kutzer';...
     };
 
 %% Assign tool/toolbox specific parameters
