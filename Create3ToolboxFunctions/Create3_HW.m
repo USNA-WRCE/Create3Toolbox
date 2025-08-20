@@ -46,6 +46,12 @@ classdef Create3_HW < matlab.mixin.SetGet
         undockGoalMsg; % object to package undock command message
         dockClient; % ROS action client to send docking commands
         dockGoalMsg; % object to package dock command message
+        drvDistClient % ROS action client to drive a prescribed distance using odometry
+        drvDistMsg % object to package action message parameters
+        rotAngClient %  ROS action client to rotate a prescribed angle using odometry
+        rotAngMsg % object to package action message parameters
+        wallClient %  ROS action client to wall follow
+        wallMsg % object to package action message parameters
     end
 
     methods
@@ -123,7 +129,10 @@ classdef Create3_HW < matlab.mixin.SetGet
                 obj.slip_sub = ros2subscriber(obj.node,"/"+robot_namespace+"/slip_status","irobot_create_msgs/SlipStatus",@obj.slipCallback,'Reliability','besteffort','Durability','volatile','Depth',1);
                 obj.led_pub = ros2publisher(obj.node,"/"+robot_namespace+"/cmd_lightring","irobot_create_msgs/LightringLeds",'Reliability','besteffort','Durability','volatile','Depth',1);
                 [obj.undockClient,obj.undockGoalMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/undock","irobot_create_msgs/Undock",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall"));
-                %[obj.dockClient,obj.dockGoalMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/dock","irobot_create_msgs/Dock",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble?)
+                [obj.dockClient,obj.dockGoalMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/dock","irobot_create_msgs/Dock",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble)
+                [obj.drvDistClient,obj.drvDistMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/drive_distance","irobot_create_msgs/DriveDistance",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble)
+                [obj.rotAngClient,obj.rotAngMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/rotate_angle","irobot_create_msgs/RotateAngle",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble)
+                [obj.wallClient,obj.wallMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/wall_follow","irobot_create_msgs/WallFollow",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble)
                 obj.beep_pub = ros2publisher(obj.node,"/"+robot_namespace+"/cmd_audio","irobot_create_msgs/AudioNoteVector",'Reliability','reliable','Durability','volatile','Depth',1);
             end
 
@@ -369,25 +378,160 @@ classdef Create3_HW < matlab.mixin.SetGet
             if obj.opMode==0
                 error('Functionality not supported in basic mode')
             else
-                goalHandle = sendGoal(obj.undockClient,obj.undockGoalMsg);
-                pause(5); % pause before allowing user to send another command
+                status = 0;
+                while status == 0
+                    status = waitForServer(obj.undockClient);
+                end
+                callbackOpts = ros2ActionSendGoalOptions(ResultFcn=@obj.helperUndockResultCallback);
+                goalHandle = sendGoal(obj.undockClient,obj.undockGoalMsg,callbackOpts);
+                is_docked = 1;
+                while is_docked
+                    resultMsg = getResult(obj.undockClient,goalHandle);
+                    is_docked = resultMsg.is_docked;
+                    %pause(0.5)
+                end
+                disp('Undocking completed...')
             end
         end
 
-        % function dock(obj) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
-        % ALSO UPDATE CREATE_MSGS 
-        %     % dock() sends a command to dock the create3
-        %     %
-        %     %
-        %     %   L. DeVries, M. Kutzer 19Nov2024, USNA
-        %     if obj.opMode==0
-        %         error('Functionality not supported in basic mode')
-        %     else
-        %         goalHandle = sendGoal(obj.dockClient,obj.dockGoalMsg);
-        %         pause(5); % pause before allowing user to send another command
-        %     end
-        % end
+        function result = helperUndockResultCallback(obj,goalHandle,resultMsg)
+            %assignin('base', 'dataFromFunction', resultMsg); for debugging
+            result = resultMsg.result.is_docked;
+        end
 
+        function dock(obj) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
+            %   ALSO UPDATE CREATE_MSGS 
+            % dock() sends a command to dock the create3
+            %
+            %
+            %   L. DeVries, M. Kutzer 19Nov2024, USNA
+            if obj.opMode==0
+                error('Functionality not supported in basic mode')
+            else
+                callbackOpts = ros2ActionSendGoalOptions(ResultFcn=@obj.helperDockResultCallback);
+                goalHandle = sendGoal(obj.dockClient,obj.dockGoalMsg,callbackOpts);
+                docked = false;
+                dockingstatus = 2;
+                tic
+                while ~docked
+                    while dockingstatus==2
+                        disp('Docking...')
+                        dockingstatus = getStatus(obj.dockClient,goalHandle);
+                        pause(1)
+                    end
+                    dkRslt = getResult(obj.dockClient,goalHandle);
+                    docked = dkRslt.is_docked;
+                    if toc>20
+                        break
+                    end
+                end
+                switch dockingstatus
+                    case 4
+                        disp('Docking finished successfully.');
+                    otherwise
+                        disp('Docking aborted or cancelled...');
+                end
+            end
+        end
+
+        function result = helperDockResultCallback(obj,goalHandle,resultMsg)
+            %assignin('base', 'dataFromFunction', resultMsg); % for debugging
+            result = resultMsg.result.is_docked;
+        end
+        
+        % function to drive a set distance
+        function driveDistance(obj,dist,maxSpd) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
+            %   ALSO UPDATE CREATE_MSGS 
+            % driveDistance(distance,maxSpeed) sends a command to drive the
+            % prescribed distance at a prescribed speed
+            %
+            %
+            %   L. DeVries, M. Kutzer 20Aug2025, USNA
+            if obj.opMode==0
+                error('Functionality not supported in basic mode')
+            else
+                callbackOpts = ros2ActionSendGoalOptions(ResultFcn=@obj.driveDistCallback);
+                if maxSpd>0.304
+                    maxSpd = 0.304;
+                end
+                obj.drvDistMsg.distance = single(dist);
+                obj.drvDistMsg.max_translation_speed = single(maxSpd);
+                goalHandle = sendGoal(obj.drvDistClient,obj.drvDistMsg,callbackOpts);
+                progress = 2;
+                while progress<4
+                    progress = getStatus(obj.drvDistClient,goalHandle);
+                    pause(0.1)
+                end
+                resultMsg = getResult(obj.drvDistClient,goalHandle);
+                disp('Completed drive')
+            end
+        end
+        
+        function out = driveDistCallback(obj,goalHandle,resultMsg)
+            out = resultMsg.result;
+        end
+        
+        % function to drive a set distance
+        function rotateAngle_rad(obj,ang,maxRotAng) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
+            %   ALSO UPDATE CREATE_MSGS 
+            % driveDistance(distance,maxSpeed) sends a command to drive the
+            % prescribed distance at a prescribed speed
+            %
+            %
+            %   L. DeVries, M. Kutzer 20Aug2025, USNA
+            if obj.opMode==0
+                error('Functionality not supported in basic mode')
+            else
+                callbackOpts = ros2ActionSendGoalOptions(ResultFcn=@obj.rotateAngleCallback);
+                if maxRotAng> 1.9
+                    maxRotAng = 1.9;
+                end
+                obj.rotAngMsg.angle = single(ang);
+                obj.rotAngMsg.max_rotation_speed = single(maxRotAng);
+                goalHandle = sendGoal(obj.rotAngClient,obj.rotAngMsg,callbackOpts);
+                progress = 2;
+                while progress<4
+                    progress = getStatus(obj.rotAngClient,goalHandle);
+                    pause(0.1)
+                end
+                resultMsg = getResult(obj.rotAngClient,goalHandle);
+                disp('Completed drive')
+            end
+        end
+        
+        function out = rotateAngleCallback(obj,goalHandle,resultMsg)
+            out = resultMsg.result;
+        end
+
+
+
+
+        % function to wall follow
+        function wallFollow(obj,side,duration) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
+            %   ALSO UPDATE CREATE_MSGS 
+            % driveDistance(distance,maxSpeed) sends a command to drive the
+            % prescribed distance at a prescribed speed
+            %
+            %
+            %   L. DeVries, M. Kutzer 20Aug2025, USNA
+            if obj.opMode==0
+                error('Functionality not supported in basic mode')
+            else
+                obj.wallMsg.follow_side = int8(side);
+                obj.wallMsg.max_runtime.sec = int32(round(duration));
+                obj.wallMsg.max_runtime.nanosec = uint32(round((duration-round(duration))*10^9));
+                goalHandle = sendGoal(obj.wallClient,obj.wallMsg);
+                progress = 2;
+                while progress<4
+                    progress = getStatus(obj.wallClient,goalHandle);
+                    pause(0.1)
+                end
+                
+                disp('Completed following')
+            end
+        end
+        
+        
         function beep(obj,freq,duration)
             % beep(tone,duration) sends a command to make the create3 beep
             % at the frequency freq and duration duration
