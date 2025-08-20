@@ -46,12 +46,14 @@ classdef Create3_HW < matlab.mixin.SetGet
         undockGoalMsg; % object to package undock command message
         dockClient; % ROS action client to send docking commands
         dockGoalMsg; % object to package dock command message
-        drvDistClient % ROS action client to drive a prescribed distance using odometry
-        drvDistMsg % object to package action message parameters
-        rotAngClient %  ROS action client to rotate a prescribed angle using odometry
-        rotAngMsg % object to package action message parameters
-        wallClient %  ROS action client to wall follow
-        wallMsg % object to package action message parameters
+        drvDistClient; % ROS action client to drive a prescribed distance using odometry
+        drvDistMsg; % object to package action message parameters
+        rotAngClient; %  ROS action client to rotate a prescribed angle using odometry
+        rotAngMsg; % object to package action message parameters
+        wallClient; %  ROS action client to wall follow
+        wallMsg; % object to package action message parameters
+        navClient;
+        navMsg;
     end
 
     methods
@@ -133,6 +135,7 @@ classdef Create3_HW < matlab.mixin.SetGet
                 [obj.drvDistClient,obj.drvDistMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/drive_distance","irobot_create_msgs/DriveDistance",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble)
                 [obj.rotAngClient,obj.rotAngMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/rotate_angle","irobot_create_msgs/RotateAngle",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble)
                 [obj.wallClient,obj.wallMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/wall_follow","irobot_create_msgs/WallFollow",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble)
+                [obj.navClient,obj.navMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/navigate_to_position","irobot_create_msgs/NavigateToPosition",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble)
                 obj.beep_pub = ros2publisher(obj.node,"/"+robot_namespace+"/cmd_audio","irobot_create_msgs/AudioNoteVector",'Reliability','reliable','Durability','volatile','Depth',1);
             end
 
@@ -503,9 +506,6 @@ classdef Create3_HW < matlab.mixin.SetGet
             out = resultMsg.result;
         end
 
-
-
-
         % function to wall follow
         function wallFollow(obj,side,duration) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
             %   ALSO UPDATE CREATE_MSGS 
@@ -523,14 +523,42 @@ classdef Create3_HW < matlab.mixin.SetGet
                 goalHandle = sendGoal(obj.wallClient,obj.wallMsg);
                 progress = 2;
                 while progress<4
-                    progress = getStatus(obj.wallClient,goalHandle);
+            nav        progress = getStatus(obj.wallClient,goalHandle);
                     pause(0.1)
                 end
                 
                 disp('Completed following')
             end
         end
-        
+
+        % function to wall follow
+        function nav2pos(obj,position,orientation,trackOr) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
+            %   ALSO UPDATE CREATE_MSGS 
+            % driveDistance(distance,maxSpeed) sends a command to drive the
+            % prescribed distance at a prescribed speed
+            %
+            %
+            %   L. DeVries, M. Kutzer 20Aug2025, USNA
+            if obj.opMode==0
+                error('Functionality not supported in basic mode')
+            else
+                obj.navMsg.achieve_goal_heading = logical(trackOr);
+                obj.navMsg.max_translation_speed = single(0.3);
+                obj.navMsg.max_rotation_speed = single(1.9);
+                obj.navMsg.goal_pose.pose.position.x = position(1); % x-position
+                obj.navMsg.goal_pose.pose.position.y = position(2);
+                obj.navMsg.goal_pose.pose.position.z = position(3);
+                goalHandle = sendGoal(obj.navClient,obj.navMsg);
+                progress = 2;
+                while progress<4
+                    progress = getStatus(obj.navClient,goalHandle);
+                    pause(0.1)
+                end
+                
+                disp('Completed navigation')
+            end
+        end
+
         
         function beep(obj,freq,duration)
             % beep(tone,duration) sends a command to make the create3 beep
