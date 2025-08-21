@@ -54,6 +54,8 @@ classdef Create3_HW < matlab.mixin.SetGet
         wallMsg; % object to package action message parameters
         navClient;
         navMsg;
+        resetPoseClient; % service client for resetting the odometry frame pose
+        resetMsg; % ROS 2 message for resetting the odometry frame pose
     end
 
     methods
@@ -136,6 +138,7 @@ classdef Create3_HW < matlab.mixin.SetGet
                 [obj.rotAngClient,obj.rotAngMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/rotate_angle","irobot_create_msgs/RotateAngle",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble)
                 [obj.wallClient,obj.wallMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/wall_follow","irobot_create_msgs/WallFollow",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble)
                 [obj.navClient,obj.navMsg] = ros2actionclient(obj.node,"/"+robot_namespace+"/navigate_to_position","irobot_create_msgs/NavigateToPosition",CancelServiceQoS=struct(Depth=200,History="keeplast"),FeedbackTopicQoS=struct(Depth=200,History="keepall")); % unable to use until we upgrade to net ros2 distribution firmware (humble)
+                [obj.resetPoseClient,obj.resetMsg] = ros2svcclient(obj.node,"/"+robot_namespace+"/reset_pose","irobot_create_msgs/ResetPose");
                 obj.beep_pub = ros2publisher(obj.node,"/"+robot_namespace+"/cmd_audio","irobot_create_msgs/AudioNoteVector",'Reliability','reliable','Durability','volatile','Depth',1);
             end
 
@@ -475,7 +478,7 @@ classdef Create3_HW < matlab.mixin.SetGet
         end
         
         % function to drive a set distance
-        function rotateAngle_rad(obj,ang,maxRotAng) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
+        function rotateAngle_rad(obj,ang) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
             %   ALSO UPDATE CREATE_MSGS 
             % driveDistance(distance,maxSpeed) sends a command to drive the
             % prescribed distance at a prescribed speed
@@ -486,11 +489,8 @@ classdef Create3_HW < matlab.mixin.SetGet
                 error('Functionality not supported in basic mode')
             else
                 callbackOpts = ros2ActionSendGoalOptions(ResultFcn=@obj.rotateAngleCallback);
-                if maxRotAng> 1.9
-                    maxRotAng = 1.9;
-                end
                 obj.rotAngMsg.angle = single(ang);
-                obj.rotAngMsg.max_rotation_speed = single(maxRotAng);
+                obj.rotAngMsg.max_rotation_speed = single(pi/2);
                 goalHandle = sendGoal(obj.rotAngClient,obj.rotAngMsg,callbackOpts);
                 progress = 2;
                 while progress<4
@@ -533,21 +533,46 @@ classdef Create3_HW < matlab.mixin.SetGet
 
         % function to wall follow
         function nav2pos(obj,position,orientation,trackOr) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
-            %   ALSO UPDATE CREATE_MSGS 
-            % driveDistance(distance,maxSpeed) sends a command to drive the
-            % prescribed distance at a prescribed speed
+            % nav2pos(position,orientation,trackOr) sends a command to
+            % drive the create to the position and orientation provided. If
+            % trackOr is set to false, the vehicle will ignore the
+            % orientation and just drive to the prescribed position.
+            %   Inputs:
+            %       position = [x_desired,y_desired,z_desired], 3x1 or 1x3
+            %       vector of desired position IN THE ODOMETRY FRAME OF THE
+            %       ROBOT
             %
+            %       orientation = des_yaw, scalar value describing the
+            %       desired orientation of the robot in radians, relative
+            %       to the odometry frame of the robot
             %
-            %   L. DeVries, M. Kutzer 20Aug2025, USNA
+            %       trackOr = logical, true or false value indicating if
+            %       the robot should achieve the desired orientation in
+            %       addition to position, or just drive to desired position
+            %
+            % Example usage: 
+            %   crt = Create3_HW('mahan',43) % establish create3 object
+            %   crt.undock % undock vehicle
+            %   crt.nav2pos([1 1 0], pi/4,true)
+            %
+            % NOTE: THis functionality only works if custom create3 ros
+            % messages are installed.
+            %
+            %   L. DeVries, 21Aug2025, USNA
             if obj.opMode==0
                 error('Functionality not supported in basic mode')
             else
+                quat = eul2quat([orientation 0 0]); % convert yaw angle to quaternion
+                obj.navMsg.goal_pose.pose.orientation.x = quat(2); % fill ros message with quaternion components
+                obj.navMsg.goal_pose.pose.orientation.y = quat(3);
+                obj.navMsg.goal_pose.pose.orientation.z = quat(4);
+                obj.navMsg.goal_pose.pose.orientation.w = quat(1);
                 obj.navMsg.achieve_goal_heading = logical(trackOr);
                 obj.navMsg.max_translation_speed = single(0.3);
-                obj.navMsg.max_rotation_speed = single(1.9);
+                obj.navMsg.max_rotation_speed = single(1.9); % maximum speeds/rates of the Create3
                 obj.navMsg.goal_pose.pose.position.x = position(1); % x-position
-                obj.navMsg.goal_pose.pose.position.y = position(2);
-                obj.navMsg.goal_pose.pose.position.z = position(3);
+                obj.navMsg.goal_pose.pose.position.y = position(2); % y-position
+                obj.navMsg.goal_pose.pose.position.z = 0;
                 goalHandle = sendGoal(obj.navClient,obj.navMsg);
                 progress = 2;
                 while progress<4
@@ -559,7 +584,28 @@ classdef Create3_HW < matlab.mixin.SetGet
             end
         end
 
-        
+        function resetPose(obj)
+            % TODO: allow position input so user can reset pose to a
+            % non-zero location
+            obj.resetMsg.pose.position.x = 0;
+            obj.resetMsg.pose.position.y = 0;
+            obj.resetMsg.pose.position.z = 0;
+            obj.resetMsg.pose.orientation.x = 0;
+            obj.resetMsg.pose.orientation.y = 0;
+            obj.resetMsg.pose.orientation.z = 0;
+            obj.resetMsg.pose.orientation.w = 1;
+            if(isServerAvailable(obj.resetPoseClient))
+                [~,status,~] = call(obj.resetPoseClient,obj.resetMsg,'Timeout',3);
+                if status
+                    disp('Successfully reset pose.')
+                end                
+                % assignin('base', 'dataFromreset', response); % for debugging
+                
+            else
+                disp("Reset Pose Server unavailable. Unable to reset pose")
+            end
+        end
+
         function beep(obj,freq,duration)
             % beep(tone,duration) sends a command to make the create3 beep
             % at the frequency freq and duration duration
