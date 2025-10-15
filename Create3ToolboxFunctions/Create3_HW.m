@@ -386,7 +386,7 @@ classdef Create3_HW < matlab.mixin.SetGet
             else
                 status = 0;
                 while status == 0
-                    status = waitForServer(obj.undockClient);
+                    status = waitForServer(obj.undockClient,10);
                 end
                 callbackOpts = ros2ActionSendGoalOptions(ResultFcn=@obj.helperUndockResultCallback);
                 goalHandle = sendGoal(obj.undockClient,obj.undockGoalMsg,callbackOpts);
