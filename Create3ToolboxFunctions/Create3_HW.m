@@ -384,19 +384,21 @@ classdef Create3_HW < matlab.mixin.SetGet
             if obj.opMode==0
                 error('Functionality not supported in basic mode')
             else
-                status = 0;
-                while status == 0
-                    status = waitForServer(obj.undockClient,10);
+                [status, statustext] = waitForServer(obj.undockClient, Timeout=10);
+                if status
+                    callbackOpts = ros2ActionSendGoalOptions(ResultFcn=@obj.helperUndockResultCallback);
+                    goalHandle = sendGoal(obj.undockClient,obj.undockGoalMsg,callbackOpts);
+                    is_docked = 1;
+                    while is_docked
+                        resultMsg = getResult(obj.undockClient,goalHandle);
+                        is_docked = resultMsg.is_docked;
+                        %pause(0.5)
+                    end
+                    disp('Undocking completed...')
+                else
+                    disp(statustext)
+                    disp('Robot unresponsive.')
                 end
-                callbackOpts = ros2ActionSendGoalOptions(ResultFcn=@obj.helperUndockResultCallback);
-                goalHandle = sendGoal(obj.undockClient,obj.undockGoalMsg,callbackOpts);
-                is_docked = 1;
-                while is_docked
-                    resultMsg = getResult(obj.undockClient,goalHandle);
-                    is_docked = resultMsg.is_docked;
-                    %pause(0.5)
-                end
-                disp('Undocking completed...')
             end
         end
 
