@@ -586,9 +586,28 @@ classdef Create3_HW < matlab.mixin.SetGet
             end
         end
 
-        function resetPose(obj)
-            % TODO: allow position input so user can reset pose to a
-            % non-zero location
+        function resetPose(obj,position,yaw)
+            obj.resetMsg.pose.position.x = position(1);
+            obj.resetMsg.pose.position.y = position(2);
+            obj.resetMsg.pose.position.z = position(3);
+            q = eul2quat([yaw 0 0]);
+            obj.resetMsg.pose.orientation.x = q(2);
+            obj.resetMsg.pose.orientation.y = q(3);
+            obj.resetMsg.pose.orientation.z = q(4);
+            obj.resetMsg.pose.orientation.w = q(1);
+            if(isServerAvailable(obj.resetPoseClient))
+                [~,status,~] = call(obj.resetPoseClient,obj.resetMsg,'Timeout',3);
+                if status
+                    disp('Successfully reset pose.')
+                end                
+                % assignin('base', 'dataFromreset', response); % for debugging
+                
+            else
+                disp("Reset Pose Server unavailable. Unable to reset pose")
+            end
+        end
+
+        function zeroPose(obj)
             obj.resetMsg.pose.position.x = 0;
             obj.resetMsg.pose.position.y = 0;
             obj.resetMsg.pose.position.z = 0;
