@@ -15,8 +15,9 @@ classdef Create3_HW < matlab.mixin.SetGet
 
     properties
         node; % primary MATLAB node to communicate over ROS network
-        %pos,quat,eul; % placeholder for MoCap data if used
-        odom_pos; % position estimate from vehicle's onboard odometry
+        odom_pos; % position estimate from vehicle's onboard odometry with matlab specified user offset
+        raw_odom_pos; % position estimate from vehicle's onboard odometry
+        raw_odom_eul; % position estimate from vehicle's onboard odometry
         odom_vel; % velocity estimate from vehicle's onboard odometry
         odom_quat; % 1x4 orientation estimate from vehicle's onboard odometry
         odom_angVel; % angular velocity measurement from vehicle's gyro
@@ -40,6 +41,7 @@ classdef Create3_HW < matlab.mixin.SetGet
         led_pub; % ROS publisher object to LED color commands
         beep_pub; % ROS publisher object to audio commands
         opMode; % oeprating mode: 0=basic mode, 1=advanced mode including custom create3 ROS messages
+        reset_offsets; % [x y z yaw pitch roll] position offset since create3 reset pose always zeros out the odometry. TODO: fix quaternion property also
         % action clients
 
         undockClient; % ROS action client to send undock commands
@@ -107,6 +109,9 @@ classdef Create3_HW < matlab.mixin.SetGet
             if numNodes>0
                 error("MATLAB connection to robot already exists. Not creating another instance")
             end
+            
+            % set initial pose offsets to zero
+            obj.reset_offsets = zeros(1,6);
 
             % objects that will work without custom toolbox
             obj.node = ros2node("node",domain_id);
@@ -237,17 +242,28 @@ classdef Create3_HW < matlab.mixin.SetGet
             %   L. DeVries, M. Kutzer 22Oct2024, USNA
 
             % odometry position estimate
-            obj.odom_pos(1) = msg.pose.pose.position.x;
-            obj.odom_pos(2) = msg.pose.pose.position.y;
-            obj.odom_pos(3) = msg.pose.pose.position.z;
+            obj.odom_pos(1) = msg.pose.pose.position.x+obj.reset_offsets(1);
+            obj.odom_pos(2) = msg.pose.pose.position.y+obj.reset_offsets(2);
+            obj.odom_pos(3) = msg.pose.pose.position.z+obj.reset_offsets(3);
+
+            % odometry position estimate
+            obj.raw_odom_pos(1) = msg.pose.pose.position.x;
+            obj.raw_odom_pos(2) = msg.pose.pose.position.y;
+            obj.raw_odom_pos(3) = msg.pose.pose.position.z;
 
             % odometry orientation estimate
             obj.odom_quat(1) = msg.pose.pose.orientation.w;
             obj.odom_quat(2) = msg.pose.pose.orientation.x;
             obj.odom_quat(3) = msg.pose.pose.orientation.y;
             obj.odom_quat(4) = msg.pose.pose.orientation.z;
-            obj.odom_eul = quat2eul(obj.odom_quat,'XYZ');
-
+            obj.odom_eul = wrapToPi(quat2eul(obj.odom_quat,'XYZ')+obj.reset_offsets(4:6)); 
+            
+            abc(1) = msg.pose.pose.orientation.w;
+            abc(2) = msg.pose.pose.orientation.x;
+            abc(3) = msg.pose.pose.orientation.y;
+            abc(4) = msg.pose.pose.orientation.z;
+            obj.raw_odom_eul = wrapToPi(quat2eul(abc,'XYZ'));
+        
             % odometry translational velocity estimate
             obj.odom_vel(1) = msg.twist.twist.linear.x;
             obj.odom_vel(2) = msg.twist.twist.linear.y;
@@ -533,7 +549,7 @@ classdef Create3_HW < matlab.mixin.SetGet
             end
         end
 
-        % function to wall follow
+        
         function nav2pos(obj,position,orientation,trackOr) % WILL NOT WORK UNTIL UPGRADE OF FIRMWARE TO HUMBLE
             % nav2pos(position,orientation,trackOr) sends a command to
             % drive the create to the position and orientation provided. If
@@ -564,7 +580,7 @@ classdef Create3_HW < matlab.mixin.SetGet
             if obj.opMode==0
                 error('Functionality not supported in basic mode')
             else
-                quat = eul2quat([orientation 0 0]); % convert yaw angle to quaternion
+                quat = eul2quat(wrapToPi([orientation-obj.reset_offsets(4) 0 0])); % convert yaw angle to quaternion
                 obj.navMsg.goal_pose.pose.orientation.x = quat(2); % fill ros message with quaternion components
                 obj.navMsg.goal_pose.pose.orientation.y = quat(3);
                 obj.navMsg.goal_pose.pose.orientation.z = quat(4);
@@ -572,8 +588,8 @@ classdef Create3_HW < matlab.mixin.SetGet
                 obj.navMsg.achieve_goal_heading = logical(trackOr);
                 obj.navMsg.max_translation_speed = single(0.3);
                 obj.navMsg.max_rotation_speed = single(1.9); % maximum speeds/rates of the Create3
-                obj.navMsg.goal_pose.pose.position.x = position(1); % x-position
-                obj.navMsg.goal_pose.pose.position.y = position(2); % y-position
+                obj.navMsg.goal_pose.pose.position.x = position(1)-obj.reset_offsets(1); % x-position
+                obj.navMsg.goal_pose.pose.position.y = position(2)-obj.reset_offsets(2); % y-position
                 obj.navMsg.goal_pose.pose.position.z = 0;
                 goalHandle = sendGoal(obj.navClient,obj.navMsg);
                 progress = 2;
@@ -586,8 +602,10 @@ classdef Create3_HW < matlab.mixin.SetGet
             end
         end
 
-        function resetPose(obj,position,yaw)
-            obj.resetMsg.pose.position.x = position(1);
+        function resetPose(obj,position,yaw,pitch,roll)
+            disp('here')
+            obj.reset_offsets = [position(1) position(2) position(3) yaw pitch roll];
+            obj.resetMsg.pose.position.x = position(1); % NOTE: create3 onboard code does not acknowledge specified positions
             obj.resetMsg.pose.position.y = position(2);
             obj.resetMsg.pose.position.z = position(3);
             q = eul2quat([yaw 0 0]);
@@ -608,6 +626,7 @@ classdef Create3_HW < matlab.mixin.SetGet
         end
 
         function zeroPose(obj)
+            obj.reset_offsets = zeros(1,6);
             obj.resetMsg.pose.position.x = 0;
             obj.resetMsg.pose.position.y = 0;
             obj.resetMsg.pose.position.z = 0;

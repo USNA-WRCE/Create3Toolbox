@@ -39,3 +39,11 @@ for qq = 1:40
     end
     pause(0.2) % run at 5Hz, note, the robots timeout at 1 Hz, so must send commands with atleast 1 Hz
 end
+
+
+%% dock all robots
+for ii = 1:length(crt)
+    % note, ROS2 Action calls are blocking in MATLAB, so the next robot
+    % will not start the action until the previous robot is finished
+    crt{ii}.dock
+end
