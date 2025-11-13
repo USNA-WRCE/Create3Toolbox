@@ -23,12 +23,12 @@ The class supports:
 ## Syntax
 
 ```matlab
-crt = Create3_HW(robot_namespace, domain_id)```
+crt = Create3_HW(robot_namespace, domain_id)
 
 # Inputs
 Name	Type	Description
 robot_namespace	char	Robot namespace on the ROS 2 network (must be lowercase).
-domain_id	integer scalar	ROS 2 Domain ID for communication with the Create3.
+domain_id	integer scalar	ROS 2 Domain ID for communication with the Create3.```
 
 ## Example
 ```
