@@ -23,13 +23,14 @@ The class supports:
 ## Syntax
 
 ```matlab
-crt = Create3_HW(robot_namespace, domain_id)
-Inputs
+crt = Create3_HW(robot_namespace, domain_id)'''
+
+# Inputs
 Name	Type	Description
 robot_namespace	char	Robot namespace on the ROS 2 network (must be lowercase).
 domain_id	integer scalar	ROS 2 Domain ID for communication with the Create3.
 
-Example
+## Example
 matlab
 Copy code
 % Create interface object
@@ -46,7 +47,9 @@ crt.setVelCmd(0, 0);
 % Advanced-mode features
 crt.beep(440, 1.0);
 crt.setLEDCmd(255*rand(6,3));
-Requirements
+
+
+## Requirements
 MATLAB ROS 2 Toolbox
 
 A toolbox containing quat2eul() (Navigation, UAV, Aerospace, or Robotics System Toolbox)
@@ -55,7 +58,7 @@ For Advanced Mode:
 Custom iRobot Create3 ROS 2 messages installed (see MathWorks’
 ROS 2 Custom Message Support)
 
-Properties
+## Properties
 Core ROS 2 Interfaces
 Property	Description
 node	Primary MATLAB ROS 2 node.
@@ -63,7 +66,7 @@ cmd_pub	Publisher for velocity commands (geometry_msgs/Twist).
 pose_sub, imu_sub, odom_sub, batt_sub	Subscribers for telemetry data.
 led_pub, beep_pub, ir_sub, wheelVel_sub, slip_sub	Advanced-mode publishers/subscribers.
 
-State & Sensor Data
+# State & Sensor Data
 Property	Description
 odom_pos	Estimated position [x y z] (m).
 odom_eul	Orientation [yaw pitch roll] (rad).
@@ -77,30 +80,30 @@ irData	Infrared proximity readings (1×7).
 wheelSpds	Wheel speeds [left; right] (rad/s).
 slipStatus	Boolean indicator for wheel slip.
 
-Control & Mode
+# Control & Mode
 Property	Description
 opMode	Operating mode: 0 = basic, 1 = advanced.
 reset_offsets	[x y z yaw pitch roll] odometry offset.
 
-Action & Service Clients
+# Action & Service Clients
 Property	Description
 undockClient, dockClient	Docking/undocking actions.
 drvDistClient, rotAngClient, wallClient, navClient	Motion and navigation actions.
 resetPoseClient	Service for resetting odometry frame.
 
-Methods
+# Methods
 Constructor & Destructor
-matlab
+```matlab
 Copy code
-obj = Create3_HW(namespace, domain_id)
+obj = Create3_HW(namespace, domain_id)'''
 Creates a new hardware interface, validates toolboxes, and initializes ROS 2 communication.
 
-matlab
+```matlab
 Copy code
-delete(obj)
+delete(obj)'''
 Cleans up ROS 2 publishers, subscribers, and clients on object deletion.
 
-Sensor & State Access
+# Sensor & State Access
 [pose, vel] = getOdomPose(obj)
 Returns:
 
@@ -117,7 +120,7 @@ quat_data = [qw qx qy qz]
 
 imu_eul = Euler angles from quaternion
 
-Motion Control
+# Motion Control
 setVelCmd(obj, u, r)
 Send forward speed and turn rate commands.
 
@@ -154,17 +157,18 @@ setLEDCmd(obj, color)
 Set LED ring colors.
 color must be 6×3 RGB matrix (0–255).
 
-matlab
+```matlab
 Copy code
 color = 255*rand(6,3);
-crt.setLEDCmd(color);
-setLEDDefault(obj)
+crt.setLEDCmd(color);'''
+
+```crt.setLEDDefault();'''
 Restore LED ring to system default behavior.
 
 beep(obj, freq, duration)
 Play a tone at freq (Hz) for duration (seconds).
 
-Pose Management
+# Pose Management
 resetPose(obj, position, yaw, pitch, roll)
 Reset odometry frame with user-defined offsets.
 
@@ -179,20 +183,20 @@ side = 1 (left) or −1 (right)
 
 duration = seconds
 
-Internal Callbacks
+# Internal Callbacks
 Method	Purpose
 odomCallBack, imuCallBack, irCallback	Parse incoming telemetry messages.
 battCallBack, wheelVelCallback, slipCallback	Update sensor data.
 helperDockResultCallback, helperUndockResultCallback	Handle ROS 2 action results.
 
-Notes
+## Notes
 Automatically checks for required toolboxes and message support.
 
 Default speed and QoS settings match Create3 hardware limits.
 
 Advanced features (dock, nav2pos, etc.) require firmware supporting ROS 2 Humble or newer.
 
-Related Links
+## Related Links
 Main Repository
 
 ROS 2 Toolbox Documentation
