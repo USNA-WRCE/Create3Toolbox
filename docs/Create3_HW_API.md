@@ -23,7 +23,7 @@ The class supports:
 ## Syntax
 
 ```matlab
-crt = Create3_HW(robot_namespace, domain_id)'''
+crt = Create3_HW(robot_namespace, domain_id)
 
 # Inputs
 Name	Type	Description
