@@ -5,8 +5,8 @@ The Create3 Toolbox for MATLAB enables control and data access for the iRobot Cr
 1. Download "Create3Toolbox.zip" (or alternate version)
 2. Unzip/Extract "Create3Toolbox.zip"
 3. Open MATLAB as an administrator
-4. Change your MATLAB Current Directory to the location containing contents of the unzipped GeometryToolbox
-5. Run "installCreate3Toolbox"
+4. Change your MATLAB Current Directory to the location containing contents of the unzipped Create3Toolbox
+5. Run "installCreate3Toolbox" from your command window in MATLAB.
 
 ## Update Instructions
 1. Open MATLAB as an administrator
@@ -14,4 +14,4 @@ The Create3 Toolbox for MATLAB enables control and data access for the iRobot Cr
 
 ## Operational Notes
 1. This installation package is compatible with MATLAB 2023b through 2024b (ROS2 Humble versions of MATLAB)
-2. To use the Create3 custom actions (dock, undock, etc.) the Create3 robot must be running ROS2 Humble Firmware
+2. To use the Create3 custom actions (dock, undock, etc.) the Create3 robot must be running ROS2 Humble Firmware. It must be in its own namespace, and must have a known domain ID.
