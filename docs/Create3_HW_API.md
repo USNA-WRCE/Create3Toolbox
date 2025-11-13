@@ -23,7 +23,7 @@ The class supports:
 ## Syntax
 
 ```matlab
-crt = Create3_HW(robot_namespace, domain_id)
+crt = Create3_HW(robot_namespace, domain_id)```
 
 # Inputs
 Name	Type	Description
@@ -31,8 +31,7 @@ robot_namespace	char	Robot namespace on the ROS 2 network (must be lowercase).
 domain_id	integer scalar	ROS 2 Domain ID for communication with the Create3.
 
 ## Example
-matlab
-Copy code
+```
 % Create interface object
 crt = Create3_HW('mahan', 43);
 
@@ -46,7 +45,7 @@ crt.setVelCmd(0, 0);
 
 % Advanced-mode features
 crt.beep(440, 1.0);
-crt.setLEDCmd(255*rand(6,3));
+crt.setLEDCmd(255*rand(6,3));```
 
 
 ## Requirements
@@ -93,14 +92,12 @@ resetPoseClient	Service for resetting odometry frame.
 
 # Methods
 Constructor & Destructor
-```matlab
-Copy code
-obj = Create3_HW(namespace, domain_id)'''
+```
+obj = Create3_HW(namespace, domain_id)```
 Creates a new hardware interface, validates toolboxes, and initializes ROS 2 communication.
 
-```matlab
-Copy code
-delete(obj)'''
+```
+delete(obj)```
 Cleans up ROS 2 publishers, subscribers, and clients on object deletion.
 
 # Sensor & State Access
