@@ -15,3 +15,6 @@ The Create3 Toolbox for MATLAB enables control and data access for the iRobot Cr
 ## Operational Notes
 1. This installation package is compatible with MATLAB 2023b through 2024b (ROS2 Humble versions of MATLAB)
 2. To use the Create3 custom actions (dock, undock, etc.) the Create3 robot must be running ROS2 Humble Firmware. It must be in its own namespace, and must have a known domain ID.
+
+## Documentation
+For usage documentation, see (https://github.com/USNA-WRCE/Create3Toolbox/blob/main/docs/Create3_HW_API.md)
