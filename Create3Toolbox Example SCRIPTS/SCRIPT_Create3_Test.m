@@ -4,8 +4,8 @@
 %% Establish Create3 object
 
 % real hardware
-name = 'mahan';
-ID = 43;
+name = 'delaware';
+ID = 58;
 crt = Create3_HW(name,ID)
 
 % sim hardware

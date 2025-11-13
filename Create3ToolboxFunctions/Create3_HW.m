@@ -658,10 +658,13 @@ classdef Create3_HW < matlab.mixin.SetGet
             if obj.opMode==0
                 error('Functionality not supported in basic mode')
             else
+                % Split duration into integer seconds and fractional nanoseconds
+                secs = floor(duration);
+                nsecs = round((duration - secs) * 1e9);
                 msg = ros2message("irobot_create_msgs/AudioNoteVector");
                 msg.notes(1).frequency = uint16(freq);
-                msg.notes(1).max_runtime.sec = int32(duration);
-                msg.notes(1).max_runtime.nanosec = uint32(0); % TODO update this to be able to play non-integer seconds
+                msg.notes(1).max_runtime.sec = int32(secs);
+                msg.notes(1).max_runtime.nanosec = uint32(nsecs); % TODO update this to be able to play non-integer seconds
                 send(obj.beep_pub,msg)
             end
 
