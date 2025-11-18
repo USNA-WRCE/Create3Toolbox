@@ -90,20 +90,14 @@ classdef Create3_HW_listener < matlab.mixin.SetGet
                 error("Robot namespace must be all lowercase letters.")
             end
             
-            % get list of all nodes on the ros2 network
-            nds = ros2("node","list","DomainID",domain_id);
-            numNodes = sum(contains(nds,'/node_lstn')); % check if there is a node called "node"
-            % if numNodes is greater than zero, then there is already an
-            % active MATLAB connection to the robot
-            if numNodes>0
-                error("MATLAB connection to robot already exists. Not creating another instance")
-            end
-            
             % set initial pose offsets to zero
             obj.reset_offsets = zeros(1,6);
-
+            
+            % create "random" node name based on time
+            tm = datetime('now');
+            ndName = string(['node_' num2str(round(second(tm)*1000))]);
             % objects that will work without custom toolbox
-            obj.node = ros2node("node_lstn",domain_id);
+            obj.node = ros2node(ndName,domain_id);
             obj.pose_sub = ros2subscriber(obj.node,"/"+robot_namespace+"/pose","geometry_msgs/PoseStamped",@obj.poseCallBack);
             obj.imu_sub = ros2subscriber(obj.node,"/"+robot_namespace+"/imu","sensor_msgs/Imu",@obj.imuCallBack,'Reliability','besteffort','Durability','volatile','Depth',1);
             obj.odom_sub = ros2subscriber(obj.node,"/"+robot_namespace+"/odom","nav_msgs/Odometry",@obj.odomCallBack,'Reliability','besteffort','Durability','volatile','Depth',1);
