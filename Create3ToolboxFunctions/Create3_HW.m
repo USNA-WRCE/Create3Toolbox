@@ -103,7 +103,7 @@ classdef Create3_HW < matlab.mixin.SetGet
             
             % get list of all nodes on the ros2 network
             nds = ros2("node","list","DomainID",domain_id);
-            numNodes = sum(contains(nds,'/node')); % check if there is a node called "node"
+            numNodes = sum(contains(nds,'/node_cmd')); % check if there is a node called "node_cmd"
             % if numNodes is greater than zero, then there is already an
             % active MATLAB connection to the robot
             if numNodes>0
@@ -114,7 +114,7 @@ classdef Create3_HW < matlab.mixin.SetGet
             obj.reset_offsets = zeros(1,6);
 
             % objects that will work without custom toolbox
-            obj.node = ros2node("node",domain_id);
+            obj.node = ros2node("node_cmd",domain_id);
             obj.pose_sub = ros2subscriber(obj.node,"/"+robot_namespace+"/pose","geometry_msgs/PoseStamped",@obj.poseCallBack);
             obj.imu_sub = ros2subscriber(obj.node,"/"+robot_namespace+"/imu","sensor_msgs/Imu",@obj.imuCallBack,'Reliability','besteffort','Durability','volatile','Depth',1);
             obj.odom_sub = ros2subscriber(obj.node,"/"+robot_namespace+"/odom","nav_msgs/Odometry",@obj.odomCallBack,'Reliability','besteffort','Durability','volatile','Depth',1);
