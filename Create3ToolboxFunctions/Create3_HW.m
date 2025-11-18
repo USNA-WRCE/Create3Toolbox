@@ -12,9 +12,41 @@ classdef Create3_HW < matlab.mixin.SetGet
     %
     %   L. DeVries & M. Kutzer, 06Oct2024, USNA
     %
+    properties (Access=private)
+        node; % primary MATLAB node to communicate over ROS network
+        paramObj; % object used to change parameter settings on Create 3
+        
+        % publishers and subscribers are hidden from users
+        pose_sub; % pose subscriber object to read ROS network data
+        imu_sub; % imu subscriber object to read ROS network data
+        odom_sub; % odometry subscriber object to read ROS network data
+        ir_sub; % infrared sensor data subscriber object to read ROS network data
+        batt_sub; % battery subscriber object to read ROS network data
+        wheelVel_sub; % wheel velocity subscriber object to read ROS network data
+        slip_sub; % slip status subscriber object to read ROS network data
+        cmd_pub; % ROS publisher object to send velocity commands
+        led_pub; % ROS publisher object to LED color commands
+        beep_pub; % ROS publisher object to audio commands
+
+        % ROS action clients and message placeholders are hidden from user
+        % action clients
+        undockClient; % ROS action client to send undock commands
+        undockGoalMsg; % object to package undock command message
+        dockClient; % ROS action client to send docking commands
+        dockGoalMsg; % object to package dock command message
+        drvDistClient; % ROS action client to drive a prescribed distance using odometry
+        drvDistMsg; % object to package action message parameters
+        rotAngClient; %  ROS action client to rotate a prescribed angle using odometry
+        rotAngMsg; % object to package action message parameters
+        wallClient; %  ROS action client to wall follow
+        wallMsg; % object to package action message parameters
+        navClient;
+        navMsg;
+        resetPoseClient; % service client for resetting the odometry frame pose
+        resetMsg; % ROS 2 message for resetting the odometry frame pose 
+    end
 
     properties
-        node; % primary MATLAB node to communicate over ROS network
         odom_pos; % position estimate from vehicle's onboard odometry with matlab specified user offset
         raw_odom_pos; % position estimate from vehicle's onboard odometry
         raw_odom_eul; % position estimate from vehicle's onboard odometry
@@ -30,34 +62,9 @@ classdef Create3_HW < matlab.mixin.SetGet
         gyro; % 1x3 array of gyro measurements from onboard sensor
         imu_quat; % 1x4 array quaternion measurement from onboard sensor
         imu_eul; % 1x3 array of Euler angles from onboard sensor
-        pose_sub; % pose subscriber object to read ROS network data
-        imu_sub; % imu subscriber object to read ROS network data
-        odom_sub; % odometry subscriber object to read ROS network data
-        ir_sub; % infrared sensor data subscriber object to read ROS network data
-        batt_sub; % battery subscriber object to read ROS network data
-        wheelVel_sub; % wheel velocity subscriber object to read ROS network data
-        slip_sub; % slip status subscriber object to read ROS network data
-        cmd_pub; % ROS publisher object to send velocity commands
-        led_pub; % ROS publisher object to LED color commands
-        beep_pub; % ROS publisher object to audio commands
         opMode; % oeprating mode: 0=basic mode, 1=advanced mode including custom create3 ROS messages
         reset_offsets; % [x y z yaw pitch roll] position offset since create3 reset pose always zeros out the odometry. TODO: fix quaternion property also
-        % action clients
-
-        undockClient; % ROS action client to send undock commands
-        undockGoalMsg; % object to package undock command message
-        dockClient; % ROS action client to send docking commands
-        dockGoalMsg; % object to package dock command message
-        drvDistClient; % ROS action client to drive a prescribed distance using odometry
-        drvDistMsg; % object to package action message parameters
-        rotAngClient; %  ROS action client to rotate a prescribed angle using odometry
-        rotAngMsg; % object to package action message parameters
-        wallClient; %  ROS action client to wall follow
-        wallMsg; % object to package action message parameters
-        navClient;
-        navMsg;
-        resetPoseClient; % service client for resetting the odometry frame pose
-        resetMsg; % ROS 2 message for resetting the odometry frame pose
+        safety_setting; % string/char, current status of safety_override parameter        
     end
 
     methods
@@ -83,6 +90,11 @@ classdef Create3_HW < matlab.mixin.SetGet
             if ~ischar(robot_namespace)
                 error('Robot namespace must be defined as a character array.');
             end
+            
+            if strcmp(lower(robot_namespace),robot_namespace)~=1
+                error("Robot namespace must be all lowercase letters.")
+            end
+
             % correct robot namespace if entered capital letters
             robot_namespace = lower(robot_namespace);
             
@@ -97,9 +109,6 @@ classdef Create3_HW < matlab.mixin.SetGet
                 error("Missing toolbox containing quat2eul() function. Please install one of the following: Navigation Toolbox,UAV Toolbox, Aerospace Toolbox, or Robotics System Toolbox")
             end
             
-            if strcmp(lower(robot_namespace),robot_namespace)~=1
-                error("Robot namespace must be all lowercase letters.")
-            end
             
             % get list of all nodes on the ros2 network
             nds = ros2("node","list","DomainID",domain_id);
@@ -120,6 +129,23 @@ classdef Create3_HW < matlab.mixin.SetGet
             obj.odom_sub = ros2subscriber(obj.node,"/"+robot_namespace+"/odom","nav_msgs/Odometry",@obj.odomCallBack,'Reliability','besteffort','Durability','volatile','Depth',1);
             obj.batt_sub = ros2subscriber(obj.node,"/"+robot_namespace+"/battery_state","sensor_msgs/BatteryState",@obj.battCallBack,'Reliability','besteffort','Durability','volatile','Depth',1);
             obj.cmd_pub = ros2publisher(obj.node,"/"+robot_namespace+"/cmd_vel","geometry_msgs/Twist",'Reliability','besteffort','Durability','volatile','Depth',1);
+            
+            % Connect to parameter server node
+            nodeName = ['/' robot_namespace '/motion_control']; % Replace with the actual node name
+            %IDstr = string(['DomainID=' num2str(domain_id)]);
+            obj.paramObj = ros2param(nodeName,DomainID=domain_id);
+            pause(1)
+            waiting = true;
+            while waiting
+                try
+                    obj.safety_setting = get(obj.paramObj,'safety_override');
+                    waiting = false;
+                catch
+                    disp('Failed to query Create 3 parameters. retrying in 3 seconds...')
+                    pause(3)
+                end
+                
+            end
 
             % check that custom message support is installed/configured correctly
             msgList = ros2("msg","list");
@@ -164,6 +190,9 @@ classdef Create3_HW < matlab.mixin.SetGet
             
             fprintf('Destructor Called.\n')
             fprintf('\tDeleting publishers and subscribers...');
+            fprintf('\tResetting safety defaults...');
+            obj.safety_default();
+
             clear obj.pose_sub;
             clear obj.imu_sum;
             clear obj.odom_sum;
@@ -337,8 +366,10 @@ classdef Create3_HW < matlab.mixin.SetGet
                 disp('u input exceeds maximum speed setting of 0.306 m/s')
             end
             if u<0
-                u = 0;
-                disp('u input exceeds default safety backup speed of 0 m/s')
+                if ~strcmp(obj.safety_setting,'backup_only')
+                    u = 0;
+                    disp('u input exceeds default safety backup speed of 0 m/s')
+                end
             end
             msg.linear.x = u;
             msg.angular.z = r;
@@ -669,6 +700,46 @@ classdef Create3_HW < matlab.mixin.SetGet
             end
 
         end
+
+
+        function safety_override(obj)
+            % safety_override() overrides the default safety parameters on
+            % the Create3. Specifically, this call overrides the backup
+            % blocker. Calling this function allows the vehicle to go
+            % backward as fast as forward and will enable the use of
+            % negative numbers in the u component of setVelCmd(u,r)
+            %
+            %  L. DeVries, 18Nov2025
+            
+            if strcmp(obj.safety_setting,'none')
+                disp('Overriding backup safety...')
+                set(obj.paramObj,'safety_override','backup_only')
+                obj.safety_setting = 'backup_only';
+                disp('Backup allowed...')
+            elseif strcmp(obj.safety_setting,'backup_only')
+                disp('Override already enabled')
+            end
+        end % end safety_override
+
+        function safety_default(obj)
+            % safety_default() returns the Create 3 to the default safety
+            % parameters. Specifically, this call sets the safety_override
+            % parameter to 'full'.
+            % Calling this function will ensure the vehicle can only move
+            % forward and will disable the use of
+            % negative numbers in the u component of setVelCmd(u,r)
+            %
+            %  L. DeVries, 18Nov2025
+
+            if strcmp(obj.safety_setting,'none')
+                disp('Override already at default value')
+            elseif strcmp(obj.safety_setting,'backup_only')
+                disp('resetting safety parameter...')
+                set(obj.paramObj,'safety_override','none')
+                obj.safety_setting = 'none';
+                disp('Default safety parameter re-established...')
+            end
+        end % end safety_override
 
     end
 end
