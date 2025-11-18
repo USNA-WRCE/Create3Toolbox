@@ -92,7 +92,7 @@ classdef Create3_HW_listener < matlab.mixin.SetGet
             
             % get list of all nodes on the ros2 network
             nds = ros2("node","list","DomainID",domain_id);
-            numNodes = sum(contains(nds,'/node')); % check if there is a node called "node"
+            numNodes = sum(contains(nds,'/node_lstn')); % check if there is a node called "node"
             % if numNodes is greater than zero, then there is already an
             % active MATLAB connection to the robot
             if numNodes>0
